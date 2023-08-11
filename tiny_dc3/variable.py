@@ -105,14 +105,60 @@ class Variable:
         c.transform = lambda x: self(x).reshape(-1, *shape)
         return c
     
-    def min(self, axis=0): # BAD BEHAVIOR
+    def min(self, axis=None):
         c = Variable(self.length)
-        c.transform = lambda x: self(x).min(axis=axis+1)
+        if axis is None:
+            def transform(x):
+                axis = tuple(y for y in range(1, len(x.shape)))
+                return self(x).min(axis=axis)
+            c.transform = transform
+        elif isinstance(axis, tuple):
+            axis = tuple(x+1 for x in axis)
+            c.transform = lambda x: self(x).min(axis=axis)
+        else:
+            c.transform = lambda x: self(x).min(axis=axis+1)
         return c
     
-    def max(self, axis=0): # BAD BEHAVIOR
+    def max(self, axis=None):
         c = Variable(self.length)
-        c.transform = lambda x: self(x).max(axis=axis+1)
+        if axis is None:
+            def transform(x):
+                axis = tuple(y for y in range(1, len(x.shape)))
+                return self(x).max(axis=axis)
+            c.transform = transform
+        elif isinstance(axis, tuple):
+            axis = tuple(x+1 for x in axis)
+            c.transform = lambda x: self(x).max(axis=axis)
+        else:
+            c.transform = lambda x: self(x).max(axis=axis+1)
+        return c
+    
+    def sum(self, axis=None):
+        c = Variable(self.length)
+        if axis is None:
+            def transform(x):
+                axis = tuple(y for y in range(1, len(x.shape)+1))
+                return self(x).sum(axis=axis)
+            c.transform = transform
+        elif isinstance(axis, tuple):
+            axis = tuple(x+1 for x in axis)
+            c.transform = lambda x: self(x).sum(axis=axis)
+        else:
+            c.transform = lambda x: self(x).sum(axis=axis+1)
+        return c
+    
+    def mean(self, axis=None):
+        c = Variable(self.length)
+        if axis is None:
+            def transform(x):
+                axis = tuple(y for y in range(1, len(x.shape)))
+                return self(x).mean(axis=axis)
+            c.transform = transform
+        elif isinstance(axis, tuple):
+            axis = tuple(x+1 for x in axis)
+            c.transform = lambda x: self(x).mean(axis=axis)
+        else:
+            c.transform = lambda x: self(x).mean(axis=axis+1)
         return c
     
     def abs(self):
@@ -128,6 +174,11 @@ class Variable:
     def log(self):
         c = Variable(self.length)
         c.transform = lambda x: self(x).log()
+        return c
+    
+    def transpose(self, ax1=1, ax2=0):
+        c = Variable(self.length)
+        c.transform = lambda x: self(x).transpose(ax1+1, ax2+1)
         return c
 
     def __getitem__(self, item):

@@ -1,7 +1,7 @@
 from tinygrad.tensor import Tensor
 import tinygrad.nn.optim as optim
 from functools import reduce
-from .newton import newton
+from .newton import newton, jacobian
 
 import numpy as np
 
@@ -16,8 +16,10 @@ class dc3:
         corr_iters=5, corr_lr=0.001, corr_momentum=0.9, corr_clip_grad_norm=None,
         int_mask=None, int_step=0.1, int_iters=5
     ):
+        
+        n_m = sum(reduce(lambda x,y: x*y, f.eval_shape()) for f in eq_resid)
         self.n = length
-        self.m = length - sum(reduce(lambda x,y: x*y, f.eval_shape()) for f in eq_resid)
+        self.m = length - n_m
         self.completion = completion(self.n, self.m, eq_resid, newton_tol, newton_iters)
         self.ineq_resid = ineq_resid
         self.t = corr_iters
@@ -36,7 +38,7 @@ class dc3:
             opt = optim.SGD([z],lr=1)
             y_new, jac, jac_inv = self.completion.forward(z)
             opt.zero_grad()
-            Tensor.cat(*[f(y_new)[:,None] for f in self.ineq_resid], dim=1).relu().pow(2).sum().backward()
+            Tensor.cat(*[f(y_new).reshape(z.shape[0],-1) for f in self.ineq_resid], dim=1).relu().pow(2).sum().backward()
             delta_z = z.grad
             dphi_dz = -jac_inv @ jac[:,:,:self.m]
             delta_phi = Tensor(dphi_dz) @ delta_z[:,:,None]
@@ -61,12 +63,13 @@ class completion:
     def __init__(self, n, m, eq_resid, tol, max_iters):
         self.n = n
         self.m = m
+        self.n_m = [reduce(lambda x,y: x*y, f.eval_shape()) for f in eq_resid]
         self.eq_resid = eq_resid
         self.tol = tol
         self.max_iters = max_iters
 
     def forward(self, z):
-        y_tilda, self.jac, self.jac_inv = newton(z, self.eq_resid, self.tol, self.max_iters)
+        y_tilda, self.jac, self.jac_inv = newton(z, self.eq_resid, self.n_m, self.tol, self.max_iters)
         return y_tilda, self.jac, self.jac_inv
     
     def backward(self, grad_output):
